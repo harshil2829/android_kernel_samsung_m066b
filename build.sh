@@ -52,6 +52,9 @@ bash scripts/kconfig/merge_config.sh -m -O "${OUT_DIR}" \
 "${KERNEL_DIR}/scripts/config" --file "${OUT_DIR}/.config" -d LTO_CLANG_FULL || true
 "${KERNEL_DIR}/scripts/config" --file "${OUT_DIR}/.config" -e LTO_CLANG_THIN || true
 
+# Enable KernelSU built-in
+"${KERNEL_DIR}/scripts/config" --file "${OUT_DIR}/.config" -e KSU || true
+
 # Generate final .config
 make -C "${KERNEL_DIR}" O="${OUT_DIR}" \
     ARCH=arm64 \

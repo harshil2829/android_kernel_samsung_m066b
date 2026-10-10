@@ -39,7 +39,7 @@ jobs:
       - name: Set up Build Environment
         run: |
           sudo apt update -y
-          sudo apt install -y libncurses5-dev bc bison flex make gcc g++ git python3 zip unzip libssl-dev cpio libelf-dev libyaml-dev pkg-config device-tree-compiler wget tar xz-utils binutils-aarch64-linux-gnu
+          sudo apt install -y libncurses5-dev bc bison flex make gcc g++ git python3 zip unzip libssl-dev cpio libelf-dev libyaml-dev pkg-config device-tree-compiler wget tar xz-utils binutils-aarch64-linux-gnu lz4
 
       - name: Download AOSP Clang-r450784e
         run: |
@@ -57,15 +57,18 @@ jobs:
       - name: Compile Kernel and Drivers
         run: |
           ulimit -n 65536 || true
-          chmod +x build.sh build_external_module.sh
+          chmod +x build.sh build_external_module.sh repack_boot.py
           bash build.sh
 
-      - name: Package Kernel Release TAR
+      - name: Generate boot.img and Odin Flashable TAR
         run: |
           cd build
           if [ -f Image.gz ]; then
-            tar -cvf "Kernel-SM-M066B-${{ github.event.inputs.tag }}.tar" Image.gz
-            echo "[✔] Packaged Kernel-SM-M066B-${{ github.event.inputs.tag }}.tar"
+            python3 ../repack_boot.py Image.gz boot.img
+            lz4 -B6 --content-size boot.img boot.img.lz4
+            tar -cvf "Kernel-SM-M066B-${{ github.event.inputs.tag }}-Odin.tar" boot.img.lz4
+            tar -cvf "Kernel-SM-M066B-${{ github.event.inputs.tag }}.tar" boot.img
+            echo "[✔] Generated boot.img, boot.img.lz4, and Odin TAR"
           fi
           cd ..
 
@@ -75,6 +78,8 @@ jobs:
           name: Kernel-SM-M066B-${{ github.event.inputs.tag }}
           path: |
             build/*.tar
+            build/boot.img
+            build/boot.img.lz4
             build/Image.gz
 
       - name: Upload Driver Module Artifacts (.ko & .sh)
@@ -93,15 +98,20 @@ jobs:
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: "build/*.tar,build/Image.gz,build/modules/*.ko,build/modules/*.sh"
+          artifacts: "build/*.tar,build/boot.img,build/boot.img.lz4,build/Image.gz,build/modules/*.ko,build/modules/*.sh"
           allowUpdates: true
           replacesArtifacts: true
           body: |
-            ### Samsung Galaxy M06 5G (SM-M066B) Kernel & Memory Driver Release
+            ### Samsung Galaxy M06 5G (SM-M066B) KernelSU Boot & Memory Driver Release
             - **Device**: Samsung Galaxy M06 5G (`SM-M066B` / SWA)
             - **Platform**: MediaTek MT6835 (Dimensity 6100+)
-            - **Kernel Version**: Linux 5.15.151
+            - **Kernel Version**: Linux 5.15.151 (GKI)
+            - **Root Engine**: **KernelSU built-in (CONFIG_KSU=y)**
+            - **Security**: Samsung DEFEX disabled
             - **Compiler**: AOSP Clang `clang-r450784e`
+            - **Flashable Packages**:
+              - `Kernel-SM-M066B-${{ github.event.inputs.tag }}-Odin.tar` (Odin AP slot)
+              - `boot.img` (Fastboot / TWRP / Generic)
             - **Included Drivers**:
               - `SM-M066B_memkernel.sh` (Self-extracting executable)
               - `SM-M066B_memkernel_enhanced.sh` (Self-extracting executable with HWBP)
