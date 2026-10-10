@@ -14,6 +14,7 @@ export CROSS_COMPILE="aarch64-linux-gnu-"
 export LLVM=1
 export LLVM_IAS=1
 
+export KERNEL_DIR="${RDIR}/kernel-5.15"
 export MODULE_DIR="${RDIR}/memkernel"
 export MODULE_DIR_ENH="${RDIR}/memkernel_enhanced"
 
@@ -83,7 +84,8 @@ JOBS=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
 if [ -d "${MODULE_DIR}" ]; then
   echo "[+] Building memkernel module..."
   make -w \
-    -C "${OUT_DIR}" \
+    -C "${KERNEL_DIR}" \
+    O="${OUT_DIR}" \
     M="${MODULE_DIR}" \
     ARCH=arm64 \
     LLVM=1 \
@@ -97,7 +99,8 @@ fi
 if [ -d "${MODULE_DIR_ENH}" ]; then
   echo "[+] Building memkernel_enhanced module..."
   make -w \
-    -C "${OUT_DIR}" \
+    -C "${KERNEL_DIR}" \
+    O="${OUT_DIR}" \
     M="${MODULE_DIR_ENH}" \
     ARCH=arm64 \
     LLVM=1 \

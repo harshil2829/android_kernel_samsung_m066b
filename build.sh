@@ -83,6 +83,21 @@ if [ -f "${OUT_DIR}/arch/arm64/boot/Image" ]; then
     cp "${OUT_DIR}/arch/arm64/boot/Image" "${RDIR}/build/Image"
 fi
 
+echo "======================================================"
+echo "  Preparing Module Environment & Linker Scripts       "
+echo "======================================================"
+
+make -C "${KERNEL_DIR}" O="${OUT_DIR}" \
+    ARCH=arm64 \
+    LLVM=1 \
+    LLVM_IAS=1 \
+    CROSS_COMPILE="${CROSS_COMPILE}" \
+    modules_prepare
+
+if [ -f "${OUT_DIR}/vmlinux.symvers" ]; then
+    cp -f "${OUT_DIR}/vmlinux.symvers" "${OUT_DIR}/Module.symvers"
+fi
+
 cd "${RDIR}"
 
 # Build external memkernel & memkernel_enhanced modules
