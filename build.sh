@@ -37,6 +37,15 @@ bash scripts/kconfig/merge_config.sh -m -O "${OUT_DIR}" \
 "${KERNEL_DIR}/scripts/config" --file "${OUT_DIR}/.config" -d SECURITY_DEFEX_USER || true
 "${KERNEL_DIR}/scripts/config" --file "${OUT_DIR}/.config" -d SECURITY_DEFEX_DTM || true
 
+# Disable BTF and IKHEADERS (avoids missing tools/bpf/resolve_btfids in open-source tree)
+"${KERNEL_DIR}/scripts/config" --file "${OUT_DIR}/.config" -d DEBUG_INFO_BTF || true
+"${KERNEL_DIR}/scripts/config" --file "${OUT_DIR}/.config" -d DEBUG_INFO_BTF_MODULES || true
+"${KERNEL_DIR}/scripts/config" --file "${OUT_DIR}/.config" -d IKHEADERS || true
+
+# Use ThinLTO instead of Full LTO to prevent runner memory exhaustion
+"${KERNEL_DIR}/scripts/config" --file "${OUT_DIR}/.config" -d LTO_CLANG_FULL || true
+"${KERNEL_DIR}/scripts/config" --file "${OUT_DIR}/.config" -e LTO_CLANG_THIN || true
+
 # Generate final .config
 make -C "${KERNEL_DIR}" O="${OUT_DIR}" \
     ARCH=arm64 \
@@ -46,7 +55,7 @@ make -C "${KERNEL_DIR}" O="${OUT_DIR}" \
     olddefconfig
 
 echo "======================================================"
-echo "  Building Linux 5.15.151 Kernel Image & DTBs         "
+echo "  Building Linux 5.15.151 Kernel Image                "
 echo "======================================================"
 
 JOBS=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
@@ -57,7 +66,7 @@ make -C "${KERNEL_DIR}" O="${OUT_DIR}" \
     LLVM_IAS=1 \
     CROSS_COMPILE="${CROSS_COMPILE}" \
     -j"${JOBS}" \
-    Image.gz dtbs
+    Image.gz
 
 if [ -f "${OUT_DIR}/arch/arm64/boot/Image.gz" ]; then
     cp "${OUT_DIR}/arch/arm64/boot/Image.gz" "${RDIR}/build/Image.gz"
