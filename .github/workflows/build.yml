@@ -1,0 +1,108 @@
+name: SM-M066B Kernel & Driver Compilation
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release Tag (e.g. v1.0)"
+        required: true
+        default: "v1.0"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    env:
+      MAKEFLAGS: -j4
+      MALLOC_TRIM_THRESHOLD_: 131072
+      MALLOC_MMAP_THRESHOLD_: 131072
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Configure Swap Space
+        run: |
+          sudo swapoff -a || true
+          sudo rm -f /swapfile || true
+          sudo fallocate -l 8G /mnt/swapfile || sudo dd if=/dev/zero of=/mnt/swapfile bs=1M count=8192
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
+      - name: Set up Build Environment
+        run: |
+          sudo apt update -y
+          sudo apt install -y libncurses5-dev bc bison flex make gcc g++ git python3 zip unzip libssl-dev cpio libelf-dev libyaml-dev pkg-config device-tree-compiler wget tar xz-utils binutils-aarch64-linux-gnu
+
+      - name: Download AOSP Clang-r450784e
+        run: |
+          mkdir -p toolchain/clang-r450784e
+          echo "[+] Fetching official AOSP Clang-r450784e (LLVM 14.0.7)..."
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master-kernel-build-2022/clang-r450784e.tar.gz
+          tar -xzf clang-r450784e.tar.gz -C toolchain/clang-r450784e
+          rm -f clang-r450784e.tar.gz
+          ./toolchain/clang-r450784e/bin/clang --version
+
+      - name: Set Environment Variables
+        run: |
+          echo "BUILD_KERNEL_VERSION=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
+
+      - name: Compile Kernel and Drivers
+        run: |
+          ulimit -n 65536 || true
+          chmod +x build.sh build_external_module.sh
+          bash build.sh
+
+      - name: Package Kernel Release TAR
+        run: |
+          cd build
+          if [ -f Image.gz ]; then
+            tar -cvf "Kernel-SM-M066B-${{ github.event.inputs.tag }}.tar" Image.gz
+            echo "[✔] Packaged Kernel-SM-M066B-${{ github.event.inputs.tag }}.tar"
+          fi
+          cd ..
+
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel-SM-M066B-${{ github.event.inputs.tag }}
+          path: |
+            build/*.tar
+            build/Image.gz
+
+      - name: Upload Driver Module Artifacts (.ko & .sh)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Drivers-SM-M066B-${{ github.event.inputs.tag }}
+          path: |
+            build/modules/*.ko
+            build/modules/*.sh
+
+      - name: Create or Update Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.event.inputs.tag }}
+          name: "Kernel-SM-M066B-${{ github.event.inputs.tag }}"
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: "build/*.tar,build/Image.gz,build/modules/*.ko,build/modules/*.sh"
+          allowUpdates: true
+          replacesArtifacts: true
+          body: |
+            ### Samsung Galaxy M06 5G (SM-M066B) Kernel & Memory Driver Release
+            - **Device**: Samsung Galaxy M06 5G (`SM-M066B` / SWA)
+            - **Platform**: MediaTek MT6835 (Dimensity 6100+)
+            - **Kernel Version**: Linux 5.15.151
+            - **Compiler**: AOSP Clang `clang-r450784e`
+            - **Included Drivers**:
+              - `SM-M066B_memkernel.sh` (Self-extracting executable)
+              - `SM-M066B_memkernel_enhanced.sh` (Self-extracting executable with HWBP)
+              - Raw `.ko` driver binaries
