@@ -1,0 +1,24 @@
+# Ignore large archives
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.zip
+Platform.tar.gz
+Kernel.tar.gz
+
+# Build outputs
+out/
+build/
+*.o
+*.ko
+*.mod
+*.mod.c
+*.mod.o
+*.order
+*.symvers
+*.dtb
+*.dtbo
+*.img
+
+# macOS files
+.DS_Store
