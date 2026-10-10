@@ -22,6 +22,12 @@ export CROSS_COMPILE="aarch64-linux-gnu-"
 export LLVM=1
 export LLVM_IAS=1
 
+# Fix case-sensitivity collisions from macOS git commits
+if [ -f "${RDIR}/fix_case_sensitivity.py" ]; then
+    echo "[+] Restoring case-sensitive netfilter headers and sources..."
+    python3 "${RDIR}/fix_case_sensitivity.py"
+fi
+
 echo "======================================================"
 echo "  Merging Defconfigs for SM-M066B (Dimensity 6100+)   "
 echo "======================================================"
